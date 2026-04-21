@@ -25,6 +25,7 @@ mmx speech voices --language chinese --output json
 - Resume Last Reading: continue the previous text from the next unfinished chunk.
 - Restart Last Reading: replay the previous text from the beginning.
 - Read with Voice Selection: fetch available MiniMax system, cloned, and generated voices.
+- Select Quick Read Voice: choose and preview the voice used by Quick Read.
 - Stop Reading: stop the active `afplay` process.
 - Smart chunking: splits medium-length selections into fast-start chunks around 1,400 characters.
 - Region support: China endpoint (`api.minimaxi.com`) and Global endpoint (`api.minimax.io`).

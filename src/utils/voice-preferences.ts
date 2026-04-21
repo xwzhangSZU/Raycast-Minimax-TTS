@@ -9,6 +9,15 @@ export async function buildDefaultOptionsFromPrefs(): Promise<TTSOptions> {
   return buildOptionsFromPrefs(voiceOverride || undefined);
 }
 
+export async function getActiveQuickReadVoiceId(): Promise<{ voiceId: string; isOverride: boolean }> {
+  const voiceOverride = await getQuickReadVoiceOverride();
+  if (voiceOverride) {
+    return { voiceId: voiceOverride, isOverride: true };
+  }
+
+  return { voiceId: buildOptionsFromPrefs().voiceId, isOverride: false };
+}
+
 export async function getQuickReadVoiceOverride(): Promise<string | null> {
   const voiceId = await LocalStorage.getItem<string>(QUICK_READ_VOICE_KEY);
   return voiceId?.trim() || null;

@@ -7,6 +7,7 @@
 - Resume Last Reading and Restart Last Reading commands
 - Chunk-level reading progress for medium-length text
 - Voice Selection: browse MiniMax system, cloned, and generated voices
+- Select Quick Read Voice: choose and preview the voice used by Quick Read
 - Set any listed voice as the Quick Read voice
 - Stop Reading: dedicated command to stop playback
 - Smart text chunking for medium-length text (around 1,400 characters per non-streaming chunk)

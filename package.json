@@ -43,6 +43,13 @@
       "mode": "view"
     },
     {
+      "name": "select-voice",
+      "title": "Select Quick Read Voice",
+      "subtitle": "MiniMax TTS",
+      "description": "Choose and preview the voice used by Quick Read",
+      "mode": "view"
+    },
+    {
       "name": "stop-reading",
       "title": "Stop Reading",
       "subtitle": "MiniMax TTS",
