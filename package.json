@@ -18,7 +18,21 @@
       "name": "quick-read",
       "title": "Quick Read Selected Text",
       "subtitle": "MiniMax TTS",
-      "description": "Read selected text with default voice. Trigger again to stop.",
+      "description": "Read selected text, or clipboard text if no selection is available. Trigger again to stop.",
+      "mode": "no-view"
+    },
+    {
+      "name": "resume-reading",
+      "title": "Resume Last Reading",
+      "subtitle": "MiniMax TTS",
+      "description": "Resume the previous reading from the next unfinished chunk",
+      "mode": "no-view"
+    },
+    {
+      "name": "restart-reading",
+      "title": "Restart Last Reading",
+      "subtitle": "MiniMax TTS",
+      "description": "Restart the previous reading from the beginning",
       "mode": "no-view"
     },
     {

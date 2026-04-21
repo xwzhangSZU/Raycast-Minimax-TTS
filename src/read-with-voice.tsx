@@ -13,6 +13,7 @@ import { FALLBACK_VOICES, groupVoicesByCategory } from "./constants/voices";
 import { synthesizeSpeech, buildOptionsFromPrefs, listVoices, TTSApiError } from "./api/minimax-tts";
 import { chunkText } from "./utils/text-chunker";
 import { AudioPlayer } from "./utils/audio-player";
+import { setQuickReadVoiceOverride } from "./utils/voice-preferences";
 import type { VoiceConfig } from "./api/types";
 
 export default function ReadWithVoice() {
@@ -128,6 +129,15 @@ export default function ReadWithVoice() {
     showToast({ style: Toast.Style.Success, title: "Playback stopped" });
   }, []);
 
+  const handleSetQuickReadVoice = useCallback(async (voice: VoiceConfig) => {
+    await setQuickReadVoiceOverride(voice.id);
+    await showToast({
+      style: Toast.Style.Success,
+      title: "Quick Read voice updated",
+      message: voice.name,
+    });
+  }, []);
+
   const textPreview = selectedText
     ? selectedText.length > 80
       ? selectedText.substring(0, 80) + "..."
@@ -164,6 +174,11 @@ export default function ReadWithVoice() {
               actions={
                 <ActionPanel>
                   <Action title="Read with This Voice" icon={Icon.Play} onAction={() => handleRead(voice)} />
+                  <Action
+                    title="Use as Quick Read Voice"
+                    icon={Icon.Star}
+                    onAction={() => handleSetQuickReadVoice(voice)}
+                  />
                   {playingVoiceId && (
                     <Action
                       title="Stop Playback"

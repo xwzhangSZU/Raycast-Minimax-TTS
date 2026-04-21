@@ -1,11 +1,9 @@
-const MAX_CHARS = 2800;
+const MAX_CHARS = 1400;
 
 /**
- * Split text into chunks that stay below MiniMax's non-streaming comfort zone.
- *
- * MiniMax T2A HTTP accepts up to 10,000 characters, but the docs recommend
- * streaming for texts over 3,000 characters. Raycast playback is simpler and
- * more reliable when we synthesize non-streaming chunks sequentially.
+ * Split text into small enough chunks for fast first playback.
+ * The common Raycast use case is 1k-5k characters, so smaller chunks
+ * reduce perceived latency and make chunk-level resume useful.
  */
 export function chunkText(text: string, maxChars: number = MAX_CHARS): string[] {
   const trimmed = text.trim();
@@ -17,16 +15,25 @@ export function chunkText(text: string, maxChars: number = MAX_CHARS): string[] 
     return [trimmed];
   }
 
-  const sentences = splitBySentence(trimmed);
-  return groupChunks(sentences, maxChars);
+  const paragraphs = splitByParagraph(trimmed);
+  return groupChunks(paragraphs, maxChars);
 }
 
 export function getCharLength(text: string): number {
   return Array.from(text).length;
 }
 
+function splitByParagraph(text: string): string[] {
+  const paragraphs = text
+    .split(/\n\s*\n+/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  return paragraphs.length > 0 ? paragraphs : [text];
+}
+
 function splitBySentence(text: string): string[] {
-  const parts = text.match(/[^。！？.!?\n]+[。！？.!?\n]*/g);
+  const parts = text.match(/[^。！？.!?；;\n]+[。！？.!?；;\n]*/g);
   if (!parts) {
     return [text];
   }
@@ -76,13 +83,13 @@ function groupChunks(parts: string[], maxChars: number): string[] {
         chunks.push(current);
         current = "";
       }
-      const clauses = splitByClause(part);
-      const subChunks = groupClauseChunks(clauses, maxChars);
+      const sentences = splitBySentence(part);
+      const subChunks = groupSentenceChunks(sentences, maxChars);
       chunks.push(...subChunks);
       continue;
     }
 
-    const combined = current ? current + part : part;
+    const combined = current ? `${current}\n\n${part}` : part;
     if (getCharLength(combined) > maxChars) {
       chunks.push(current);
       current = part;
@@ -96,6 +103,39 @@ function groupChunks(parts: string[], maxChars: number): string[] {
   }
 
   return chunks.map((c) => c.trim()).filter((c) => c.length > 0);
+}
+
+function groupSentenceChunks(sentences: string[], maxChars: number): string[] {
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const sentence of sentences) {
+    const sentenceLength = getCharLength(sentence);
+
+    if (sentenceLength > maxChars) {
+      if (current) {
+        chunks.push(current);
+        current = "";
+      }
+      const clauses = splitByClause(sentence);
+      chunks.push(...groupClauseChunks(clauses, maxChars));
+      continue;
+    }
+
+    const combined = current ? current + sentence : sentence;
+    if (getCharLength(combined) > maxChars) {
+      chunks.push(current);
+      current = sentence;
+    } else {
+      current = combined;
+    }
+  }
+
+  if (current) {
+    chunks.push(current);
+  }
+
+  return chunks;
 }
 
 function groupClauseChunks(clauses: string[], maxChars: number): string[] {

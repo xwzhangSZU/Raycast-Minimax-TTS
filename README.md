@@ -21,11 +21,14 @@ mmx speech voices --language chinese --output json
 
 ## Features
 
-- Quick Read Selected Text: read selected text with the default voice.
+- Quick Read Selected Text: read selected text with the default voice, or clipboard text when no selection is available.
+- Resume Last Reading: continue the previous text from the next unfinished chunk.
+- Restart Last Reading: replay the previous text from the beginning.
 - Read with Voice Selection: fetch available MiniMax system, cloned, and generated voices.
 - Stop Reading: stop the active `afplay` process.
-- Smart chunking: splits long selections into non-streaming chunks below 3,000 characters.
+- Smart chunking: splits medium-length selections into fast-start chunks around 1,400 characters.
 - Region support: China endpoint (`api.minimaxi.com`) and Global endpoint (`api.minimax.io`).
+- Voice shortcut: set any listed voice as the Quick Read voice without opening preferences.
 
 ## Configuration
 
@@ -41,6 +44,8 @@ Open the extension preferences in Raycast and set:
 | Language Boost | `auto`, Chinese, English, etc. |
 | Speech Rate | 0.5x to 2.0x |
 
+The voice picked from "Read with Voice Selection" is stored as a local Quick Read override and takes precedence over the static Default Voice preference.
+
 ## Development
 
 ```bash
@@ -55,6 +60,7 @@ npm run lint
 - API: MiniMax T2A HTTP `POST /v1/t2a_v2`
 - Voice lookup: MiniMax Voice Management `POST /v1/get_voice`
 - Audio response: hex-encoded MP3 converted to base64, then played through macOS `afplay`
+- Reading state: the most recent text, chunks, progress, and TTS options are stored in Raycast local storage
 - Playback stop: PID file in `$TMPDIR/minimax-tts.pid`
 
 ## References

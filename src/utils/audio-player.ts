@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import { execSync } from "child_process";
 
 const PID_FILE = join(tmpdir(), "minimax-tts.pid");
+const STOP_FILE = join(tmpdir(), "minimax-tts.stop");
 
 export class AudioPlayer {
   private currentProcess: ChildProcess | null = null;
@@ -153,6 +154,7 @@ export function stopExternalPlayback(): boolean {
     if (!existsSync(PID_FILE)) {
       return false;
     }
+    writeStopRequest();
     const pidStr = readFileSync(PID_FILE, "utf8").trim();
     const pid = parseInt(pidStr, 10);
     if (isNaN(pid)) {
@@ -178,5 +180,27 @@ export function stopExternalPlayback(): boolean {
   } catch {
     removePidFile();
     return false;
+  }
+}
+
+export function clearExternalStopRequest(): void {
+  try {
+    if (existsSync(STOP_FILE)) {
+      unlinkSync(STOP_FILE);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export function hasExternalStopRequest(): boolean {
+  return existsSync(STOP_FILE);
+}
+
+function writeStopRequest(): void {
+  try {
+    writeFileSync(STOP_FILE, String(Date.now()), "utf8");
+  } catch {
+    // ignore
   }
 }

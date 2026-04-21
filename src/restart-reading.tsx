@@ -1,13 +1,10 @@
 import { showHUD, showToast, Toast, openExtensionPreferences } from "@raycast/api";
 import { TTSApiError } from "./api/minimax-tts";
 import { clearExternalStopRequest, stopExternalPlayback } from "./utils/audio-player";
-import { getReadableText } from "./utils/text-source";
-import { prepareReadingSession } from "./utils/reading-session";
+import { getLastReadingSession, restartReadingSession } from "./utils/reading-session";
 import { playReadingSession } from "./utils/reading-runner";
-import { buildDefaultOptionsFromPrefs } from "./utils/voice-preferences";
 
-export default async function QuickRead() {
-  // Toggle: if our afplay is already running, stop it and return
+export default async function RestartReading() {
   const wasPlaying = stopExternalPlayback();
   if (wasPlaying) {
     await showHUD("Stopped");
@@ -17,15 +14,14 @@ export default async function QuickRead() {
   clearExternalStopRequest();
 
   try {
-    const readableText = await getReadableText();
-    if (!readableText) {
-      await showHUD("No selected text or clipboard text");
+    const lastSession = await getLastReadingSession();
+    if (!lastSession) {
+      await showHUD("No previous reading");
       return;
     }
 
-    const options = await buildDefaultOptionsFromPrefs();
-    const { session, isResuming } = await prepareReadingSession(readableText.text, readableText.source, options);
-    await playReadingSession(session, isResuming);
+    const session = await restartReadingSession(lastSession);
+    await playReadingSession(session, false);
   } catch (error) {
     if (error instanceof TTSApiError) {
       if (error.code === -1) {
