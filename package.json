@@ -62,6 +62,14 @@
       "subtitle": "MiniMax TTS",
       "description": "Stop the current TTS playback",
       "mode": "no-view"
+    },
+    {
+      "name": "playback-status",
+      "title": "Reading Status",
+      "subtitle": "MiniMax TTS",
+      "description": "Menu-bar status of the current MiniMax TTS reading with controls",
+      "mode": "menu-bar",
+      "interval": "1m"
     }
   ],
   "preferences": [

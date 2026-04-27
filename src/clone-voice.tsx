@@ -19,6 +19,7 @@ import {
 } from "./api/minimax-tts";
 import { AudioPlayer } from "./utils/audio-player";
 import { setQuickReadVoiceOverride } from "./utils/voice-preferences";
+import { lookupUploadCache, rememberUploadCache } from "./utils/upload-cache";
 
 const DEFAULT_PREVIEW_TEXT = "这是一个 MiniMax 克隆音色试听。";
 const MODEL_OPTIONS = [
@@ -63,6 +64,9 @@ interface CloneVoiceResult {
   inputSensitive?: boolean;
 }
 
+type FormErrorKey = "voiceId" | "sourceAudio" | "promptAudio" | "promptText" | "previewText";
+type FormErrors = Partial<Record<FormErrorKey, string>>;
+
 export default function CloneVoiceCommand() {
   const prefs = useMemo(() => getPreferenceDefaults(), []);
   const availableModelOptions = useMemo(
@@ -74,13 +78,24 @@ export default function CloneVoiceCommand() {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<CloneVoiceResult | null>(null);
+  const [errors, setErrors] = useState<FormErrors>({});
   const playerRef = useRef(new AudioPlayer());
 
   useEffect(() => {
+    // Preview clip playback survives view dismissal — no cleanup on unmount.
     return () => {
-      playerRef.current.cleanup();
+      // intentionally empty
     };
   }, []);
+
+  function clearError(field: FormErrorKey) {
+    setErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
 
   async function handleSubmit(values: CloneVoiceFormValues) {
     const sourceAudioPath = values.sourceAudio[0];
@@ -89,7 +104,7 @@ export default function CloneVoiceCommand() {
     const previewText = values.previewText.trim();
     const promptText = values.promptText.trim();
 
-    validateCloneForm({
+    const validation = validateCloneForm({
       voiceId,
       sourceAudioPath,
       promptAudioPath,
@@ -97,16 +112,24 @@ export default function CloneVoiceCommand() {
       previewText,
     });
 
+    if (!validation.ok) {
+      setErrors(validation.errors);
+      const firstMessage = Object.values(validation.errors)[0];
+      if (firstMessage) {
+        await showToast({ style: Toast.Style.Failure, title: "Check the highlighted fields", message: firstMessage });
+      }
+      return;
+    }
+
+    setErrors({});
     setIsSubmitting(true);
 
     try {
-      await showToast({ style: Toast.Style.Animated, title: "Uploading source audio..." });
-      const sourceFileId = await uploadAudioFile(sourceAudioPath, "voice_clone");
+      const sourceFileId = await uploadCachedAudio(sourceAudioPath, "voice_clone", "source audio");
 
       let promptAudioFileId: number | undefined;
       if (promptAudioPath) {
-        await showToast({ style: Toast.Style.Animated, title: "Uploading prompt audio..." });
-        promptAudioFileId = await uploadAudioFile(promptAudioPath, "prompt_audio");
+        promptAudioFileId = await uploadCachedAudio(promptAudioPath, "prompt_audio", "prompt audio");
       }
 
       await showToast({ style: Toast.Style.Animated, title: "Cloning voice..." });
@@ -188,11 +211,20 @@ export default function CloneVoiceCommand() {
             {result.demoAudioUrl && (
               <Action title="Play Preview Audio" icon={Icon.Play} onAction={handlePreviewAudio} />
             )}
-            <Action title="Use as Quick Read Voice" icon={Icon.Star} onAction={handleUseAsQuickReadVoice} />
+            <Action
+              title="Use as Quick Read Voice"
+              icon={Icon.Star}
+              shortcut={{ modifiers: ["cmd"], key: "return" }}
+              onAction={handleUseAsQuickReadVoice}
+            />
             {result.demoAudioUrl && (
               <Action.OpenInBrowser title="Open Preview Audio URL" url={result.demoAudioUrl} icon={Icon.Link} />
             )}
-            <Action.CopyToClipboard title="Copy Voice Identifier" content={result.voiceId} />
+            <Action.CopyToClipboard
+              title="Copy Voice Identifier"
+              content={result.voiceId}
+              shortcut={{ modifiers: ["cmd", "shift"], key: "." }}
+            />
             <Action
               title="Clone Another Voice"
               icon={Icon.Plus}
@@ -223,25 +255,42 @@ export default function CloneVoiceCommand() {
         title="Voice ID"
         placeholder="Example: MinimaxVoice01"
         info="8-256 chars. Start with a letter; only letters, numbers, - and _ are allowed."
+        error={errors.voiceId}
+        onChange={() => clearError("voiceId")}
       />
       <Form.FilePicker
         id="sourceAudio"
         title="Source Audio"
         allowMultipleSelection={false}
         info="Required. mp3, m4a, or wav. MiniMax expects 10s to 5m and up to 20 MB."
+        error={errors.sourceAudio}
+        onChange={() => clearError("sourceAudio")}
       />
       <Form.FilePicker
         id="promptAudio"
         title="Prompt Audio"
         allowMultipleSelection={false}
         info="Optional. Use a short reference clip under 8 seconds to improve similarity."
+        error={errors.promptAudio}
+        onChange={() => {
+          clearError("promptAudio");
+          clearError("promptText");
+        }}
       />
-      <Form.TextArea id="promptText" title="Prompt Text" placeholder="Required if Prompt Audio is selected" />
+      <Form.TextArea
+        id="promptText"
+        title="Prompt Text"
+        placeholder="Required if Prompt Audio is selected"
+        error={errors.promptText}
+        onChange={() => clearError("promptText")}
+      />
       <Form.TextArea
         id="previewText"
         title="Preview Text"
         defaultValue={DEFAULT_PREVIEW_TEXT}
         placeholder="Used to generate the demo audio returned by MiniMax"
+        error={errors.previewText}
+        onChange={() => clearError("previewText")}
       />
       <Form.Dropdown id="model" title="Preview Model" defaultValue={prefs.model}>
         {availableModelOptions.map((option) => (
@@ -260,41 +309,76 @@ export default function CloneVoiceCommand() {
   );
 }
 
+async function uploadCachedAudio(filePath: string, purpose: "voice_clone" | "prompt_audio", label: string) {
+  const cached = await lookupUploadCache(filePath, purpose);
+  if (cached !== null) {
+    await showToast({
+      style: Toast.Style.Animated,
+      title: `Reusing previously uploaded ${label}`,
+    });
+    return cached;
+  }
+
+  await showToast({ style: Toast.Style.Animated, title: `Uploading ${label}...` });
+  const fileId = await uploadAudioFile(filePath, purpose);
+  await rememberUploadCache(filePath, purpose, fileId);
+  return fileId;
+}
+
 function validateCloneForm(input: {
   voiceId: string;
   sourceAudioPath?: string;
   promptAudioPath?: string;
   promptText: string;
   previewText: string;
-}) {
+}): { ok: true } | { ok: false; errors: FormErrors } {
+  const errors: FormErrors = {};
+
   if (!input.voiceId) {
-    throw new TTSApiError("Voice ID is required.", -5);
-  }
-
-  if (input.voiceId.length < 8 || input.voiceId.length > 256) {
-    throw new TTSApiError("Voice ID must be between 8 and 256 characters.", -5);
-  }
-
-  if (!/^[A-Za-z][A-Za-z0-9_-]*[A-Za-z0-9]$/.test(input.voiceId)) {
-    throw new TTSApiError("Voice ID must start with a letter and cannot end with '-' or '_'.", -5);
+    errors.voiceId = "Voice ID is required.";
+  } else if (input.voiceId.length < 8 || input.voiceId.length > 256) {
+    errors.voiceId = "Voice ID must be between 8 and 256 characters.";
+  } else if (!/^[A-Za-z][A-Za-z0-9_-]*[A-Za-z0-9]$/.test(input.voiceId)) {
+    errors.voiceId = "Must start with a letter and cannot end with '-' or '_'.";
   }
 
   if (!input.sourceAudioPath) {
-    throw new TTSApiError("Source audio is required.", -5);
+    errors.sourceAudio = "Source audio is required.";
   }
 
   if (!input.previewText) {
-    throw new TTSApiError("Preview text is required.", -5);
+    errors.previewText = "Preview text is required.";
   }
 
-  if ((input.promptAudioPath && !input.promptText) || (!input.promptAudioPath && input.promptText)) {
-    throw new TTSApiError("Prompt audio and prompt text must be provided together.", -5);
+  if (input.promptAudioPath && !input.promptText) {
+    errors.promptText = "Prompt text is required when Prompt Audio is set.";
+  } else if (!input.promptAudioPath && input.promptText) {
+    errors.promptAudio = "Prompt audio is required when Prompt Text is set.";
   }
+
+  if (Object.keys(errors).length > 0) {
+    return { ok: false, errors };
+  }
+  return { ok: true };
 }
 
 function buildResultMarkdown(result: CloneVoiceResult): string {
+  const nextSteps = [
+    "## Next steps",
+    "",
+    result.demoAudioUrl
+      ? "- Press **⏎** to play the MiniMax-generated preview clip."
+      : "- Press **⏎** to assign this voice to Quick Read.",
+    "- **⌘⏎** sets this voice as your Quick Read default — invoke Quick Read to use it immediately.",
+    "- **⌘⇧.** copies the Voice ID for use elsewhere (e.g. as a `customDefaultVoice`).",
+    "",
+  ];
+
   return [
     "# Cloned Voice Ready",
+    "",
+    ...nextSteps,
+    "## Details",
     "",
     `- **Voice ID:** \`${result.voiceId}\``,
     `- **Preview Model:** \`${result.model}\``,
@@ -308,7 +392,7 @@ function buildResultMarkdown(result: CloneVoiceResult): string {
       ? "- **Safety Result:** Input flagged by MiniMax safety checks."
       : "- **Safety Result:** Not flagged",
     "",
-    "MiniMax notes that a cloned voice may be deleted if it is not formally used within 7 days.",
+    "> MiniMax notes that a cloned voice may be deleted if it is not formally used within 7 days.",
   ].join("\n");
 }
 
@@ -330,6 +414,15 @@ function getPreferenceDefaults(): { model: string; languageBoost: string; prefer
 
 async function presentError(error: unknown, title: string) {
   if (error instanceof TTSApiError) {
+    if (error.code === -1 || error.code === -6) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: error.code === -1 ? "Configuration Required" : "Model Not Available",
+        message: error.message,
+        primaryAction: { title: "Open Preferences", onAction: () => openExtensionPreferences() },
+      });
+      return;
+    }
     await showToast({ style: Toast.Style.Failure, title, message: error.message });
     return;
   }

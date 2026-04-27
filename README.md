@@ -62,13 +62,15 @@ MiniMax's current Token Plan docs say Token Plan supports **TTS HD** models, spe
 - Quick Read Selected Text: read selected text with the default voice, or clipboard text when no selection is available.
 - Resume Last Reading: continue the previous text from the next unfinished chunk.
 - Restart Last Reading: replay the previous text from the beginning.
-- Read with Voice Selection: fetch available MiniMax system, cloned, and generated voices.
-- Select Quick Read Voice: choose and preview the voice used by Quick Read.
-- Clone Voice: upload source audio, create a cloned voice, and preview the returned demo audio.
-- Stop Reading: stop the active `afplay` process.
+- Read with Voice Selection: fetch MiniMax system, cloned, and generated voices; live per-row "Synthesizing N/M" / "Playing N/M" progress while the picker stays browsable.
+- Select Quick Read Voice: choose and preview the voice used by Quick Read; Active Configuration row warns when the chosen model is incompatible with the configured key.
+- Clone Voice: upload source audio with inline form validation, create a cloned voice, and preview the returned demo audio.
+- Stop Reading: stop the active `afplay` process; surfaces a "Resume Last Reading" action when nothing is playing but a paused session exists.
+- Reading Status (menu-bar): persistent status item shows live `Synth N/M` / `Play N/M` or paused position with Stop / Resume / Restart / Read / Pick Voice controls.
 - Smart chunking: splits medium-length selections into fast-start chunks around 1,400 characters.
 - Region support: China endpoint (`api.minimaxi.com`) and Global endpoint (`api.minimax.io`).
 - Voice shortcut: set any listed voice as the Quick Read voice without opening preferences.
+- Voice list and clone-source uploads are cached locally to keep repeat opens instant and to skip re-uploads on retry.
 
 ## MiniMax Setup
 
