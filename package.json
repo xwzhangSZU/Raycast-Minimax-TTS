@@ -50,6 +50,13 @@
       "mode": "view"
     },
     {
+      "name": "clone-voice",
+      "title": "Clone Voice",
+      "subtitle": "MiniMax TTS",
+      "description": "Upload audio and create a cloned MiniMax voice",
+      "mode": "view"
+    },
+    {
       "name": "stop-reading",
       "title": "Stop Reading",
       "subtitle": "MiniMax TTS",
@@ -59,11 +66,41 @@
   ],
   "preferences": [
     {
-      "name": "apiKey",
+      "name": "authMode",
+      "type": "dropdown",
+      "required": false,
+      "title": "Authentication Mode",
+      "description": "Choose which MiniMax key type to use",
+      "default": "auto",
+      "data": [
+        {
+          "title": "Auto Detect (Recommended)",
+          "value": "auto"
+        },
+        {
+          "title": "Token Plan Key",
+          "value": "token-plan"
+        },
+        {
+          "title": "Open Platform API Key",
+          "value": "payg"
+        }
+      ]
+    },
+    {
+      "name": "tokenPlanKey",
       "type": "password",
-      "required": true,
-      "title": "API Key",
-      "description": "MiniMax Token Plan or API key",
+      "required": false,
+      "title": "Token Plan Key",
+      "description": "MiniMax Token Plan subscription key; Token Plan currently supports TTS HD models only",
+      "placeholder": "sk-..."
+    },
+    {
+      "name": "openPlatformApiKey",
+      "type": "password",
+      "required": false,
+      "title": "Open Platform API Key",
+      "description": "MiniMax pay-as-you-go API key",
       "placeholder": "sk-..."
     },
     {
@@ -89,31 +126,31 @@
       "type": "dropdown",
       "required": false,
       "title": "Model",
-      "description": "MiniMax speech model",
+      "description": "Token Plan supports HD models only; Turbo requires Open Platform API Key",
       "default": "speech-2.8-hd",
       "data": [
         {
-          "title": "Speech 2.8 HD (Recommended)",
+          "title": "Speech 2.8 HD (Recommended, Token Plan Compatible)",
           "value": "speech-2.8-hd"
         },
         {
-          "title": "Speech 2.8 Turbo",
+          "title": "Speech 2.8 Turbo (Open Platform Only)",
           "value": "speech-2.8-turbo"
         },
         {
-          "title": "Speech 2.6 HD",
+          "title": "Speech 2.6 HD (Token Plan Compatible)",
           "value": "speech-2.6-hd"
         },
         {
-          "title": "Speech 2.6 Turbo",
+          "title": "Speech 2.6 Turbo (Open Platform Only)",
           "value": "speech-2.6-turbo"
         },
         {
-          "title": "Speech 02 HD",
+          "title": "Speech 02 HD (Token Plan Compatible)",
           "value": "speech-02-hd"
         },
         {
-          "title": "Speech 02 Turbo",
+          "title": "Speech 02 Turbo (Open Platform Only)",
           "value": "speech-02-turbo"
         }
       ]
