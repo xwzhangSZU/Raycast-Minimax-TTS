@@ -25,6 +25,6 @@ export default async function ResumeReading() {
 
     await playReadingSession(session, session.nextChunkIndex > 0);
   } catch (error) {
-    await presentCommandError(error, "Resume Reading failed");
+    await presentCommandError(error, "Failed to resume reading");
   }
 }

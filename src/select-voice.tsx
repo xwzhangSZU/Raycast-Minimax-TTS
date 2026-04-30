@@ -17,7 +17,7 @@ import {
   listVoices,
   TTSApiError,
 } from "./api/minimax-tts";
-import { FALLBACK_VOICES, groupVoicesByCategory } from "./constants/voices";
+import { addCustomVoices, collectCustomVoiceIds, FALLBACK_VOICES, groupVoicesByCategory } from "./constants/voices";
 import type { VoiceConfig } from "./api/types";
 import { AudioPlayer } from "./utils/audio-player";
 import { getReadableText } from "./utils/text-source";
@@ -47,6 +47,7 @@ export default function SelectVoice() {
   const playerRef = useRef(new AudioPlayer());
 
   const configStatus = useMemo(() => buildConfigStatus(), []);
+  const customDefaultVoiceId = useMemo(() => getPreferenceValues<Preferences>().customDefaultVoice?.trim() || null, []);
 
   useEffect(() => {
     let mounted = true;
@@ -54,32 +55,38 @@ export default function SelectVoice() {
     async function load() {
       const prefs = getPreferenceValues<Preferences>();
       const cacheKey = { region: prefs.region || "cn", authMode: prefs.authMode || "auto" };
+      const withCustomVoices = (voiceList: VoiceConfig[], extraVoiceId?: string) =>
+        addCustomVoices(voiceList, collectCustomVoiceIds(prefs.customDefaultVoice, prefs.customVoiceIds, extraVoiceId));
 
       const cached = await readCachedVoices(cacheKey.region, cacheKey.authMode);
       if (mounted && cached) {
-        setVoices(cached.voices);
+        setVoices(withCustomVoices(cached.voices));
         setIsLoading(!cached.isFresh);
       }
 
       const activeVoice = await getActiveQuickReadVoiceId();
+      const activeVoiceIdForList = activeVoice.isOverride ? activeVoice.voiceId : undefined;
       if (mounted) {
         setActiveVoiceId(activeVoice.voiceId);
         setUsesOverride(activeVoice.isOverride);
+        if (activeVoiceIdForList) {
+          setVoices((current) => withCustomVoices(current, activeVoiceIdForList));
+        }
       }
 
       try {
         const voiceList = await listVoices();
         if (!mounted) return;
         if (voiceList.length > 0) {
-          setVoices(voiceList);
+          setVoices(withCustomVoices(voiceList, activeVoiceIdForList));
           await writeCachedVoices(voiceList, cacheKey.region, cacheKey.authMode);
         } else if (!cached) {
-          setVoices(FALLBACK_VOICES);
+          setVoices(withCustomVoices(FALLBACK_VOICES, activeVoiceIdForList));
         }
       } catch (error) {
         if (!mounted) return;
         if (!cached) {
-          setVoices(FALLBACK_VOICES);
+          setVoices(withCustomVoices(FALLBACK_VOICES, activeVoiceIdForList));
           showToast({
             style: Toast.Style.Failure,
             title: "Using built-in voice list",
@@ -157,7 +164,7 @@ export default function SelectVoice() {
     const activeVoice = await getActiveQuickReadVoiceId();
     setActiveVoiceId(activeVoice.voiceId);
     setUsesOverride(activeVoice.isOverride);
-    await showToast({ style: Toast.Style.Success, title: "Using preference default voice" });
+    await showToast({ style: Toast.Style.Success, title: "Reset to default voice" });
   }, []);
 
   const activeVoice = activeVoiceId ? voices.find((voice) => voice.id === activeVoiceId) : undefined;
@@ -219,10 +226,14 @@ export default function SelectVoice() {
               id={voice.id}
               key={voice.id}
               title={voice.name}
-              subtitle={voice.id}
+              subtitle={voice.isCustom ? undefined : voice.id}
               icon={voice.gender === "female" ? Icon.Female : voice.gender === "male" ? Icon.Male : Icon.Person}
               accessories={[
                 ...(activeVoiceId === voice.id ? [{ tag: { value: "Quick Read", color: Color.Green } }] : []),
+                ...(customDefaultVoiceId === voice.id
+                  ? [{ tag: { value: "Default", color: Color.SecondaryText } }]
+                  : []),
+                ...(voice.isCustom ? [{ tag: { value: "Unverified", color: Color.Orange } }] : []),
                 ...(previewingVoiceId === voice.id ? [{ tag: { value: "Previewing", color: Color.Blue } }] : []),
                 ...(voice.description ? [{ text: voice.description }] : []),
               ]}
@@ -245,7 +256,7 @@ export default function SelectVoice() {
                       onAction={handleResetVoice}
                     />
                   )}
-                  <Action.CopyToClipboard title="Copy Voice Identifier" content={voice.id} />
+                  <Action.CopyToClipboard title="Copy Voice Id" content={voice.id} />
                   <Action title="Open Preferences" icon={Icon.Gear} onAction={openExtensionPreferences} />
                 </ActionPanel>
               }
@@ -290,10 +301,10 @@ function buildConfigStatus(): ConfigStatus {
   } else {
     if (!tokenPlanKey && !openPlatformApiKey) {
       authLabel = "Auto · no key configured";
-      warning = "Configure a key to start";
+      warning = "Add a key to get started";
     } else if (!tokenPlanCompatible && !openPlatformApiKey) {
       authLabel = "Auto · Token Plan only";
-      warning = "Turbo model needs Open Platform Key";
+      warning = "Turbo models require an Open Platform Key";
     } else if (!tokenPlanCompatible && openPlatformApiKey) {
       authLabel = "Auto → Open Platform";
     } else if (tokenPlanKey) {

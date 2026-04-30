@@ -42,6 +42,6 @@ export default async function QuickRead() {
     const { session, isResuming } = await prepareReadingSession(readableText.text, readableText.source, options);
     await playReadingSession(session, isResuming);
   } catch (error) {
-    await presentCommandError(error, "Quick Read failed");
+    await presentCommandError(error, "Failed to read selection");
   }
 }

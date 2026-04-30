@@ -10,14 +10,15 @@ import {
   getPreferenceValues,
   openExtensionPreferences,
 } from "@raycast/api";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { FALLBACK_VOICES, groupVoicesByCategory } from "./constants/voices";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { addCustomVoices, collectCustomVoiceIds, FALLBACK_VOICES, groupVoicesByCategory } from "./constants/voices";
 import { synthesizeSpeech, buildOptionsFromPrefs, listVoices, TTSApiError } from "./api/minimax-tts";
 import { chunkText } from "./utils/text-chunker";
 import { AudioPlayer } from "./utils/audio-player";
-import { setQuickReadVoiceOverride } from "./utils/voice-preferences";
+import { getQuickReadVoiceOverride, setQuickReadVoiceOverride } from "./utils/voice-preferences";
 import { readCachedVoices, writeCachedVoices } from "./utils/voice-cache";
 import { buildTextPreview, clearPlaybackState, writePlaybackState } from "./utils/playback-state";
+import { clampSpeed, clearPlaybackSpeed, readPlaybackSpeed, writePlaybackSpeed } from "./utils/playback-speed";
 import type { VoiceConfig } from "./api/types";
 
 type RowPhase = "synthesizing" | "playing";
@@ -35,6 +36,7 @@ export default function ReadWithVoice() {
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState<RowProgress | null>(null);
   const playerRef = useRef(new AudioPlayer());
+  const customDefaultVoiceId = useMemo(() => getPreferenceValues<Preferences>().customDefaultVoice?.trim() || null, []);
 
   useEffect(() => {
     let mounted = true;
@@ -42,11 +44,18 @@ export default function ReadWithVoice() {
     async function load() {
       const prefs = getPreferenceValues<Preferences>();
       const cacheKey = { region: prefs.region || "cn", authMode: prefs.authMode || "auto" };
+      const quickReadVoiceOverride = await getQuickReadVoiceOverride();
+      const customVoiceIds = collectCustomVoiceIds(
+        prefs.customDefaultVoice,
+        prefs.customVoiceIds,
+        quickReadVoiceOverride,
+      );
+      const withCustomVoices = (voiceList: VoiceConfig[]) => addCustomVoices(voiceList, customVoiceIds);
 
       // Render cached voices immediately so the picker is instant on warm start.
       const cached = await readCachedVoices(cacheKey.region, cacheKey.authMode);
       if (mounted && cached) {
-        setVoices(cached.voices);
+        setVoices(withCustomVoices(cached.voices));
         setIsLoading(!cached.isFresh);
       }
 
@@ -58,15 +67,15 @@ export default function ReadWithVoice() {
         const voiceList = await listVoices();
         if (!mounted) return;
         if (voiceList.length > 0) {
-          setVoices(voiceList);
+          setVoices(withCustomVoices(voiceList));
           await writeCachedVoices(voiceList, cacheKey.region, cacheKey.authMode);
         } else if (!cached) {
-          setVoices(FALLBACK_VOICES);
+          setVoices(withCustomVoices(FALLBACK_VOICES));
         }
       } catch (error) {
         if (!mounted) return;
         if (!cached) {
-          setVoices(FALLBACK_VOICES);
+          setVoices(withCustomVoices(FALLBACK_VOICES));
           showToast({
             style: Toast.Style.Failure,
             title: "Using built-in voice list",
@@ -110,9 +119,14 @@ export default function ReadWithVoice() {
 
       try {
         const options = buildOptionsFromPrefs(voice.id);
+        let currentSpeed = clampSpeed(options.speed);
+        await writePlaybackSpeed(currentSpeed);
 
         for (let i = 0; i < total; i++) {
           if (player.isStopped()) break;
+
+          // Pick up any speed change made by Speed Up / Slow Down between chunks.
+          currentSpeed = (await readPlaybackSpeed()) ?? currentSpeed;
 
           setProgress({ voiceId: voice.id, phase: "synthesizing", chunkIndex: i, chunkTotal: total });
           await writePlaybackState({
@@ -123,10 +137,11 @@ export default function ReadWithVoice() {
             totalChars: text.length,
             chunkIndex: i,
             chunkTotal: total,
+            speed: currentSpeed,
             updatedAt: new Date().toISOString(),
           });
 
-          const audio = await synthesizeSpeech(chunks[i], options);
+          const audio = await synthesizeSpeech(chunks[i], { ...options, speed: currentSpeed });
           if (player.isStopped()) break;
 
           setProgress({ voiceId: voice.id, phase: "playing", chunkIndex: i, chunkTotal: total });
@@ -138,6 +153,7 @@ export default function ReadWithVoice() {
             totalChars: text.length,
             chunkIndex: i,
             chunkTotal: total,
+            speed: currentSpeed,
             updatedAt: new Date().toISOString(),
           });
 
@@ -146,10 +162,12 @@ export default function ReadWithVoice() {
 
         if (!player.isStopped()) {
           await clearPlaybackState();
+          await clearPlaybackSpeed();
           await showToast({ style: Toast.Style.Success, title: "Playback complete", message: voice.name });
         }
       } catch (error) {
         await clearPlaybackState();
+        await clearPlaybackSpeed();
         if (error instanceof TTSApiError) {
           if (error.code === -1 || error.code === -6) {
             await showToast({
@@ -179,6 +197,7 @@ export default function ReadWithVoice() {
     playerRef.current.stopPlayback();
     setProgress(null);
     await clearPlaybackState();
+    await clearPlaybackSpeed();
     showToast({ style: Toast.Style.Success, title: "Playback stopped" });
   }, []);
 
@@ -229,19 +248,23 @@ export default function ReadWithVoice() {
               <List.Item
                 key={voice.id}
                 title={voice.name}
-                subtitle={voice.id}
+                subtitle={voice.isCustom ? undefined : voice.id}
                 icon={voice.gender === "female" ? Icon.Female : voice.gender === "male" ? Icon.Male : Icon.Person}
                 accessories={[
                   ...(rowProgress
                     ? [{ tag: { value: progressLabel(rowProgress), color: phaseColor(rowProgress.phase) } }]
                     : []),
+                  ...(customDefaultVoiceId === voice.id
+                    ? [{ tag: { value: "Default", color: Color.SecondaryText } }]
+                    : []),
+                  ...(voice.isCustom ? [{ tag: { value: "Unverified", color: Color.Orange } }] : []),
                   ...(voice.description ? [{ text: voice.description }] : []),
                 ]}
                 actions={
                   <ActionPanel>
                     <Action title="Read with This Voice" icon={Icon.Play} onAction={() => handleRead(voice)} />
                     <Action
-                      title="Use as Quick Read Voice"
+                      title="Set as Quick Read Voice"
                       icon={Icon.Star}
                       onAction={() => handleSetQuickReadVoice(voice)}
                     />
@@ -253,7 +276,7 @@ export default function ReadWithVoice() {
                         onAction={handleStop}
                       />
                     )}
-                    <Action.CopyToClipboard title="Copy Voice Identifier" content={voice.id} />
+                    <Action.CopyToClipboard title="Copy Voice Id" content={voice.id} />
                     <Action title="Open Preferences" icon={Icon.Gear} onAction={openExtensionPreferences} />
                   </ActionPanel>
                 }

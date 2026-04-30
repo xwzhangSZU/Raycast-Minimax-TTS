@@ -62,11 +62,12 @@ MiniMax's current Token Plan docs say Token Plan supports **TTS HD** models, spe
 - Quick Read Selected Text: read selected text with the default voice, or clipboard text when no selection is available.
 - Resume Last Reading: continue the previous text from the next unfinished chunk.
 - Restart Last Reading: replay the previous text from the beginning.
-- Read with Voice Selection: fetch MiniMax system, cloned, and generated voices; live per-row "Synthesizing N/M" / "Playing N/M" progress while the picker stays browsable.
-- Select Quick Read Voice: choose and preview the voice used by Quick Read; Active Configuration row warns when the chosen model is incompatible with the configured key.
+- Read with Voice Selection: fetch MiniMax system, cloned, generated, and configured custom voice IDs; live per-row "Synthesizing N/M" / "Playing N/M" progress while the picker stays browsable.
+- Select Quick Read Voice: choose and preview the voice used by Quick Read, including configured custom voice IDs; Active Configuration row warns when the chosen model is incompatible with the configured key.
 - Clone Voice: upload source audio with inline form validation, create a cloned voice, and preview the returned demo audio.
 - Stop Reading: stop the active `afplay` process; surfaces a "Resume Last Reading" action when nothing is playing but a paused session exists.
-- Reading Status (menu-bar): persistent status item shows live `Synth N/M` / `Play N/M` or paused position with Stop / Resume / Restart / Read / Pick Voice controls.
+- Speed up Reading / Slow Down Reading: adjust the active or paused reading by 0.25×; the new speed applies from the next synthesized segment.
+- Reading Status (menu-bar): persistent status item shows live `Synth N/M` / `Play N/M` or paused position with Stop / Resume / Restart / Speed Up / Slow Down / Read / Pick Voice controls.
 - Smart chunking: splits medium-length selections into fast-start chunks around 1,400 characters.
 - Region support: China endpoint (`api.minimaxi.com`) and Global endpoint (`api.minimax.io`).
 - Voice shortcut: set any listed voice as the Quick Read voice without opening preferences.
@@ -101,9 +102,10 @@ Open the extension preferences in Raycast and set:
 | Region                  | China or Global API endpoint                                                                    |
 | Model                   | HD models work with Token Plan; Turbo models require Open Platform API Key                      |
 | Default Voice           | Built-in quick-read voice                                                                       |
-| Custom Default Voice ID | Optional cloned/generated voice ID                                                              |
+| Default Custom Voice ID | Optional cloned/generated voice ID; overrides Default Voice and is tagged `Default` in pickers  |
+| Extra Custom Voice IDs  | Comma-separated cloned/generated voice IDs to surface in voice pickers (tagged `Unverified` until MiniMax acknowledges them) |
 | Language Boost          | `auto`, Chinese, English, etc.                                                                  |
-| Speech Rate             | 0.5x to 2.0x                                                                                    |
+| Speech Rate             | 0.5× to 2.0×                                                                                    |
 
 The voice picked from "Read with Voice Selection" is stored as a local Quick Read override and takes precedence over the static Default Voice preference.
 
@@ -120,9 +122,11 @@ If you keep both key types configured, **Auto Detect** uses the right key for th
 
 ### Choose a Voice
 
-1. Run **Read with Voice Selection** to browse MiniMax system, cloned, and generated voices.
+1. Run **Read with Voice Selection** to browse MiniMax system, cloned, generated, and configured custom voices.
 2. Pick a voice to read the current selection.
-3. Use **Use as Quick Read Voice** from the action panel to make that voice the default for future Quick Read sessions.
+3. Use **Set as Quick Read Voice** from the action panel to make that voice the default for future Quick Read sessions.
+
+If a cloned/generated voice does not appear in MiniMax's voice lookup response, add its `voice_id` to **Default Custom Voice ID** or **Extra Custom Voice IDs** in preferences. The extension sends that ID directly as `voice_setting.voice_id`. Manually added IDs surface at the top of the voice pickers under a `Custom` section and carry an `Unverified` tag until MiniMax's voice lookup confirms them.
 
 ### Clone a Voice
 
@@ -140,6 +144,8 @@ MiniMax's current docs say the source clone audio should be 10 seconds to 5 minu
 - **Resume Last Reading** continues the previous text from the next unfinished chunk.
 - **Restart Last Reading** replays the previous text from the beginning.
 - **Stop Reading** stops the active audio process without deleting the saved reading session.
+- **Speed up Reading** and **Slow Down Reading** change the reading speed in 0.25× steps from 0.5× to 2.0×.
+- Speed changes apply to the next segment because each segment is synthesized separately; paused readings remember the adjusted speed when resumed.
 
 This is designed for short papers, article excerpts, documentation pages, and other medium-length selections rather than full audiobook production.
 

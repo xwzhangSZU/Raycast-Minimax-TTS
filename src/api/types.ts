@@ -109,4 +109,5 @@ export interface VoiceConfig {
   category: string;
   description?: string;
   gender?: "female" | "male" | "unknown";
+  isCustom?: boolean;
 }

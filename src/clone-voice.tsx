@@ -212,7 +212,7 @@ export default function CloneVoiceCommand() {
               <Action title="Play Preview Audio" icon={Icon.Play} onAction={handlePreviewAudio} />
             )}
             <Action
-              title="Use as Quick Read Voice"
+              title="Set as Quick Read Voice"
               icon={Icon.Star}
               shortcut={{ modifiers: ["cmd"], key: "return" }}
               onAction={handleUseAsQuickReadVoice}
@@ -221,7 +221,7 @@ export default function CloneVoiceCommand() {
               <Action.OpenInBrowser title="Open Preview Audio URL" url={result.demoAudioUrl} icon={Icon.Link} />
             )}
             <Action.CopyToClipboard
-              title="Copy Voice Identifier"
+              title="Copy Voice Id"
               content={result.voiceId}
               shortcut={{ modifiers: ["cmd", "shift"], key: "." }}
             />
@@ -339,7 +339,7 @@ function validateCloneForm(input: {
   } else if (input.voiceId.length < 8 || input.voiceId.length > 256) {
     errors.voiceId = "Voice ID must be between 8 and 256 characters.";
   } else if (!/^[A-Za-z][A-Za-z0-9_-]*[A-Za-z0-9]$/.test(input.voiceId)) {
-    errors.voiceId = "Must start with a letter and cannot end with '-' or '_'.";
+    errors.voiceId = "Voice ID must start with a letter and cannot end in '-' or '_'.";
   }
 
   if (!input.sourceAudioPath) {
@@ -368,8 +368,8 @@ function buildResultMarkdown(result: CloneVoiceResult): string {
     "",
     result.demoAudioUrl
       ? "- Press **⏎** to play the MiniMax-generated preview clip."
-      : "- Press **⏎** to assign this voice to Quick Read.",
-    "- **⌘⏎** sets this voice as your Quick Read default — invoke Quick Read to use it immediately.",
+      : "- Press **⏎** to set this voice as the Quick Read default.",
+    "- **⌘⏎** sets this as your Quick Read default; trigger Quick Read to hear it.",
     "- **⌘⇧.** copies the Voice ID for use elsewhere (e.g. as a `customDefaultVoice`).",
     "",
   ];
@@ -392,7 +392,7 @@ function buildResultMarkdown(result: CloneVoiceResult): string {
       ? "- **Safety Result:** Input flagged by MiniMax safety checks."
       : "- **Safety Result:** Not flagged",
     "",
-    "> MiniMax notes that a cloned voice may be deleted if it is not formally used within 7 days.",
+    "> MiniMax may delete a cloned voice that hasn't been used within 7 days.",
   ].join("\n");
 }
 

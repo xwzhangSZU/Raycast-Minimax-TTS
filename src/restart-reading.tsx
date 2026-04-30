@@ -22,6 +22,6 @@ export default async function RestartReading() {
     const session = await restartReadingSession(lastSession);
     await playReadingSession(session, false);
   } catch (error) {
-    await presentCommandError(error, "Restart Reading failed");
+    await presentCommandError(error, "Failed to restart reading");
   }
 }

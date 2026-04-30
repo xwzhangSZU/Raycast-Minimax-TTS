@@ -13,6 +13,11 @@ export interface PlaybackState {
   totalChars: number;
   chunkIndex: number;
   chunkTotal: number;
+  /**
+   * Speed used for the current chunk. Optional so that older persisted
+   * states (written before live speed control existed) still parse.
+   */
+  speed?: number;
   updatedAt: string;
 }
 
